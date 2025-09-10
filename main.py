@@ -12,8 +12,12 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Проверка наличия переменных
 if not BOT_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("Проверь BOT_TOKEN и OPENAI_API_KEY в Variables Railway!")
+    raise EnvironmentError(
+        "🚨 BOT_TOKEN и OPENAI_API_KEY не найдены! "
+        "Добавьте их в Variables проекта на Railway."
+    )
 
 openai.api_key = OPENAI_API_KEY
 
@@ -30,17 +34,17 @@ with open("data/prompts.json", "r", encoding="utf-8") as f:
     PROMPTS = json.load(f)
 
 # -----------------------------
-# Функция общения с GPT с минимизацией ошибок
+# Функция общения с GPT
 # -----------------------------
 def ai_reply(user_message):
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Ты дружелюбный Telegram-бот по имени PromptPilot. Общайся как живой человек, используй юмор, эмодзи и лёгкий зумерский стиль."},
+                {"role": "system", "content": "Ты дружелюбный Telegram-бот по имени PromptPilot. Используй эмодзи, лёгкий зумерский стиль и юмор."},
                 {"role": "user", "content": user_message}
             ],
-            temperature=0.8,  # чуть больше креатива
+            temperature=0.8,
             max_tokens=300
         )
         if "choices" in response and len(response["choices"]) > 0:
@@ -100,4 +104,3 @@ async def casual_chat(message: types.Message):
 # -----------------------------
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
-
