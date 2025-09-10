@@ -7,50 +7,45 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 # -----------------------------
-# Переменные окружения (Railway)
+# Переменные окружения
 # -----------------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Проверка наличия переменных
-if not BOT_TOKEN or not OPENAI_API_KEY:
-    raise EnvironmentError(
-        "🚨 BOT_TOKEN и OPENAI_API_KEY не найдены! "
-        "Добавьте их в Variables проекта на Railway."
-    )
-
-openai.api_key = OPENAI_API_KEY
-
 # -----------------------------
 # Инициализация бота
 # -----------------------------
-bot = Bot(token=BOT_TOKEN, parse_mode=types.ParseMode.HTML)
+bot = Bot(token=BOT_TOKEN or "DUMMY", parse_mode=types.ParseMode.HTML)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 # -----------------------------
 # Загружаем промты
 # -----------------------------
-with open("data/prompts.json", "r", encoding="utf-8") as f:
-    PROMPTS = json.load(f)
+PROMPTS = []
+try:
+    with open("data/prompts.json", "r", encoding="utf-8") as f:
+        PROMPTS = json.load(f)
+except Exception as e:
+    print("Не удалось загрузить промты:", e)
 
 # -----------------------------
 # Функция общения с GPT
 # -----------------------------
 def ai_reply(user_message):
+    if not OPENAI_API_KEY:
+        return "Бот пока не настроен, админ должен добавить ключи 🛠"
     try:
+        openai.api_key = OPENAI_API_KEY
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Ты дружелюбный Telegram-бот по имени PromptPilot. Используй эмодзи, лёгкий зумерский стиль и юмор."},
+                {"role": "system", "content": "Ты дружелюбный Telegram-бот, используй эмодзи и юмор."},
                 {"role": "user", "content": user_message}
             ],
             temperature=0.8,
             max_tokens=300
         )
-        if "choices" in response and len(response["choices"]) > 0:
-            return response["choices"][0]["message"]["content"]
-        else:
-            return "Ой, что-то пошло не так 😅 Попробуй ещё раз!"
+        return response["choices"][0]["message"]["content"]
     except Exception as e:
         print("Ошибка GPT:", e)
         return "Ой, что-то пошло не так 😅 Попробуй ещё раз!"
@@ -65,10 +60,16 @@ def main_keyboard():
     return keyboard
 
 # -----------------------------
-# Хендлеры
+# Стартовый хендлер
 # -----------------------------
 @dp.message_handler(commands=["start"])
 async def start_command(message: types.Message):
+    if not BOT_TOKEN or not OPENAI_API_KEY:
+        await message.answer(
+            "Привет! 🚨 Бот пока не настроен. Админ должен добавить ключи в Variables проекта."
+        )
+        return
+
     text = (
         f"Йоу, {message.from_user.first_name} 👋\n\n"
         "Я твой карманный <b>PromptPilot</b> ✈️\n"
@@ -82,8 +83,15 @@ async def start_command(message: types.Message):
 # -----------------------------
 @dp.callback_query_handler(lambda c: True)
 async def process_callback(callback_query: types.CallbackQuery):
+    if not BOT_TOKEN or not OPENAI_API_KEY:
+        await bot.send_message(callback_query.from_user.id, "Бот пока не настроен 🚨")
+        return
+
     if callback_query.data == "new_prompt":
-        prompt = random.choice(PROMPTS)
+        if PROMPTS:
+            prompt = random.choice(PROMPTS)
+        else:
+            prompt = "Список промтов пуст 😅"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("🎨 Ещё промт", callback_data="new_prompt"))
         await bot.send_message(callback_query.from_user.id, f"🎯 Вот твой промт:\n\n<code>{prompt}</code>", reply_markup=keyboard)
