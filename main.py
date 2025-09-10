@@ -30,7 +30,7 @@ with open("data/prompts.json", "r", encoding="utf-8") as f:
     PROMPTS = json.load(f)
 
 # -----------------------------
-# Функция общения с GPT
+# Функция общения с GPT с минимизацией ошибок
 # -----------------------------
 def ai_reply(user_message):
     try:
@@ -39,9 +39,14 @@ def ai_reply(user_message):
             messages=[
                 {"role": "system", "content": "Ты дружелюбный Telegram-бот по имени PromptPilot. Общайся как живой человек, используй юмор, эмодзи и лёгкий зумерский стиль."},
                 {"role": "user", "content": user_message}
-            ]
+            ],
+            temperature=0.8,  # чуть больше креатива
+            max_tokens=300
         )
-        return response["choices"][0]["message"]["content"]
+        if "choices" in response and len(response["choices"]) > 0:
+            return response["choices"][0]["message"]["content"]
+        else:
+            return "Ой, что-то пошло не так 😅 Попробуй ещё раз!"
     except Exception as e:
         print("Ошибка GPT:", e)
         return "Ой, что-то пошло не так 😅 Попробуй ещё раз!"
@@ -95,3 +100,4 @@ async def casual_chat(message: types.Message):
 # -----------------------------
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
+
