@@ -3,19 +3,17 @@ import random
 import json
 import openai
 from aiogram import Bot, Dispatcher, executor, types
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from dotenv import load_dotenv
 
 # -----------------------------
-# Загружаем переменные окружения
+# Переменные окружения (Railway)
 # -----------------------------
-load_dotenv()  # читаем .env
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not BOT_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("Ошибка: проверь BOT_TOKEN и OPENAI_API_KEY в переменных окружения")
+    raise ValueError("Проверь BOT_TOKEN и OPENAI_API_KEY в Variables Railway!")
 
 openai.api_key = OPENAI_API_KEY
 
@@ -39,7 +37,7 @@ def ai_reply(user_message):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Ты дружелюбный Telegram-бот по имени PromptPilot. Общайся как живой человек, используй юмор, смайлы и немного зумерский стиль."},
+                {"role": "system", "content": "Ты дружелюбный Telegram-бот по имени PromptPilot. Общайся как живой человек, используй юмор, эмодзи и лёгкий зумерский стиль."},
                 {"role": "user", "content": user_message}
             ]
         )
@@ -49,6 +47,15 @@ def ai_reply(user_message):
         return "Ой, что-то пошло не так 😅 Попробуй ещё раз!"
 
 # -----------------------------
+# Клавиатура
+# -----------------------------
+def main_keyboard():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.add(InlineKeyboardButton("🎨 Новый промт", callback_data="new_prompt"))
+    keyboard.add(InlineKeyboardButton("💬 Поговорить с ботом", callback_data="chat_mode"))
+    return keyboard
+
+# -----------------------------
 # Хендлеры
 # -----------------------------
 @dp.message_handler(commands=["start"])
@@ -56,33 +63,27 @@ async def start_command(message: types.Message):
     text = (
         f"Йоу, {message.from_user.first_name} 👋\n\n"
         "Я твой карманный <b>PromptPilot</b> ✈️\n"
-        "Давай бахнем тебе свежий промт для генерации? 🔥\n\n"
-        "Команды:\n"
-        "👉 /prompt — случайный промт\n"
-        "👉 /chat — поболтать со мной\n"
-        "👉 /help — помощь"
+        "Я могу дать тебе свежие промты для генерации и поболтать 😎\n\n"
+        "Выбирай, что хочешь сделать ниже 👇"
     )
-    await message.answer(text)
+    await message.answer(text, reply_markup=main_keyboard())
 
-@dp.message_handler(commands=["prompt"])
-async def get_prompt(message: types.Message):
-    prompt = random.choice(PROMPTS)
-    await message.answer(f"🎨 Вот тебе промт:\n\n<code>{prompt}</code>")
+# -----------------------------
+# Обработка кнопок
+# -----------------------------
+@dp.callback_query_handler(lambda c: True)
+async def process_callback(callback_query: types.CallbackQuery):
+    if callback_query.data == "new_prompt":
+        prompt = random.choice(PROMPTS)
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(InlineKeyboardButton("🎨 Ещё промт", callback_data="new_prompt"))
+        await bot.send_message(callback_query.from_user.id, f"🎯 Вот твой промт:\n\n<code>{prompt}</code>", reply_markup=keyboard)
+    elif callback_query.data == "chat_mode":
+        await bot.send_message(callback_query.from_user.id, "Окей, давай потрещим 🤟 Пиши что угодно!")
 
-@dp.message_handler(commands=["help"])
-async def help_command(message: types.Message):
-    await message.answer(
-        "📖 Доступные команды:\n"
-        "/prompt — получить промт\n"
-        "/chat — поболтать со мной\n"
-        "/help — помощь"
-    )
-
+# -----------------------------
 # Чат с GPT
-@dp.message_handler(commands=["chat"])
-async def chat_mode(message: types.Message):
-    await message.answer("Окей, бро, давай потрещим 🤟 Пиши что угодно!")
-
+# -----------------------------
 @dp.message_handler(lambda msg: True)
 async def casual_chat(message: types.Message):
     if not message.text.startswith("/"):
