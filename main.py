@@ -1,20 +1,43 @@
 import os
 import random
 import json
+import openai
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-# Загружаем токен
-TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=TOKEN, parse_mode=types.ParseMode.HTML)
+# -----------------------------
+# Настройки
+# -----------------------------
+# Используй прямой ключ для теста или через .env:
+openai.api_key = "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"
+
+BOT_TOKEN = "твой_бот_токен_из_BotFather"
+
+bot = Bot(token=BOT_TOKEN, parse_mode=types.ParseMode.HTML)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
+# -----------------------------
 # Загружаем промты
+# -----------------------------
 with open("data/prompts.json", "r", encoding="utf-8") as f:
     PROMPTS = json.load(f)
 
-# --- Хендлеры ---
+# -----------------------------
+# Функция общения с GPT
+# -----------------------------
+def ai_reply(user_message):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Ты дружелюбный Telegram-бот по имени PromptPilot. Общайся как живой человек, используй юмор, смайлы и немного зумерский стиль."},
+            {"role": "user", "content": user_message}
+        ]
+    )
+    return response["choices"][0]["message"]["content"]
 
+# -----------------------------
+# Хендлеры
+# -----------------------------
 @dp.message_handler(commands=["start"])
 async def start_command(message: types.Message):
     text = (
@@ -37,29 +60,34 @@ async def get_prompt(message: types.Message):
 
 @dp.message_handler(commands=["help"])
 async def help_command(message: types.Message):
-    await message.answer("📖 Доступные команды:\n"
-                         "/prompt — получить промт\n"
-                         "/chat — поболтать со мной\n"
-                         "/help — помощь")
+    await message.answer(
+        "📖 Доступные команды:\n"
+        "/prompt — получить промт\n"
+        "/chat — поболтать со мной\n"
+        "/help — помощь"
+    )
 
 
-# Простейший чат-бот (дружелюбный стиль)
+# Чат с ботом
 @dp.message_handler(commands=["chat"])
 async def chat_mode(message: types.Message):
-    await message.answer("Окей, давай поболтаем 🤟 Напиши что угодно!")
+    await message.answer("Окей, бро, давай потрещим 🤟 Пиши что угодно!")
+
 
 @dp.message_handler(lambda msg: True)
 async def casual_chat(message: types.Message):
-    responses = [
-        "Четко 🔥 А чем занимаешься?",
-        "Понимаю тебя, бро 😎",
-        "Хаха, это топчик 😂",
-        "Слушай, а не хочешь промтик словить? Напиши /prompt 😉",
-        "Бро, звучит как вайб ✨"
-    ]
     if not message.text.startswith("/"):
-        await message.answer(random.choice(responses))
+        try:
+            reply = ai_reply(message.text)
+            await message.answer(reply)
+        except Exception as e:
+            # На случай ошибок OpenAI API
+            await message.answer("Ой, что-то пошло не так 😅 Попробуй ещё раз!")
+            print("Error GPT:", e)
 
 
+# -----------------------------
+# Запуск бота
+# -----------------------------
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
